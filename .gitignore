@@ -1,0 +1,22 @@
+# Flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins-dependencies
+app/**/*.iml
+app/.idea/
+
+# PHP
+api/vendor/
+api/.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+backups/*.sql
+backups/*.gz
+
+# IDE
+.vscode/
+*.log
