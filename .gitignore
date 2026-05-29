@@ -1,3 +1,6 @@
+# Copie locale accidentelle du dépôt (ne pas versionner)
+app/souma-parfumerie/
+
 # Flutter
 app/.dart_tool/
 app/build/
@@ -16,6 +19,9 @@ Thumbs.db
 # Backups
 backups/*.sql
 backups/*.gz
+
+# Logs API Manager
+logs/
 
 # IDE
 .vscode/*

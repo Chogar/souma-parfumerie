@@ -19,17 +19,26 @@ class SyncService extends ChangeNotifier {
   DateTime? get lastSync => _lastSync;
   String? get status => _status;
 
+  bool get isEnabled => AppConfig.cloudSyncEnabled;
+
   Future<String> apiBaseUrl() async {
+    if (!isEnabled) return '';
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('api_base_url') ?? AppConfig.defaultApiBaseUrl;
   }
 
   Future<bool> hasConnectivity() async {
+    if (!isEnabled) return false;
     final result = await Connectivity().checkConnectivity();
     return !result.contains(ConnectivityResult.none);
   }
 
   Future<bool> sync({String? token}) async {
+    if (!isEnabled) {
+      _status = 'disabled';
+      notifyListeners();
+      return false;
+    }
     if (_syncing) return false;
     if (!await hasConnectivity()) {
       _status = 'offline';

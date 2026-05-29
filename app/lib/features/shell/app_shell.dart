@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:souma_parfumerie/core/config/app_config.dart';
 import 'package:souma_parfumerie/core/security/app_permissions.dart';
 import 'package:souma_parfumerie/core/services/locale_provider.dart';
 import 'package:souma_parfumerie/core/services/store_settings_service.dart';
@@ -165,14 +166,15 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: l10n.syncNow,
-            onPressed: () async {
-              await context.read<SyncService>().sync();
-              if (context.mounted) bumpAppRefresh(context);
-            },
-          ),
+          if (AppConfig.cloudSyncEnabled)
+            IconButton(
+              icon: const Icon(Icons.sync),
+              tooltip: l10n.syncNow,
+              onPressed: () async {
+                await context.read<SyncService>().sync();
+                if (context.mounted) bumpAppRefresh(context);
+              },
+            ),
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'logout') auth.logout();

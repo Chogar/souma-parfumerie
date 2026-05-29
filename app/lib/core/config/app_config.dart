@@ -34,6 +34,13 @@ class AppConfig {
         'http://localhost:8888/Souma%20Parfumerie/api/public',
   );
 
+  /// Sync cloud LWS désactivée par défaut (PostgreSQL local uniquement).
+  /// Activer au build : `--dart-define=SOUMA_CLOUD_SYNC=true`
+  static const bool cloudSyncEnabled = bool.fromEnvironment(
+    'SOUMA_CLOUD_SYNC',
+    defaultValue: false,
+  );
+
   static const String currencySymbol = 'FCFA';
   static const String deviceId = String.fromEnvironment(
     'SOUMA_DEVICE_ID',

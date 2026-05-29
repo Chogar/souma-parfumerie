@@ -34,6 +34,22 @@ Document root : `api/public/`
 - Login : `POST .../api/public/api/auth/login`
 - Sync pull : `GET .../api/public/api/sync/pull` (Bearer JWT)
 - Sync push : `POST .../api/public/api/sync/push` (Bearer JWT)
+- **Portail Manager** : `.../api/public/manager/` (téléphone / PC, sans LWS)
+
+### API Manager (accès distant local)
+
+Routes réservées au rôle `manager` (Bearer JWT) :
+
+| Route | Description |
+|-------|-------------|
+| `GET /api/manager/dashboard` | KPI du jour |
+| `GET /api/manager/sales` | Historique ventes |
+| `GET /api/manager/reports` | Rapports période |
+| `GET /api/manager/reports/yearly` | Rapport annuel |
+| `GET /api/manager/returns` | Retours en attente |
+| `POST /api/manager/returns/approve` | Approuver retour |
+
+Démarrage local : `./scripts/start_manager_api.sh` — voir [docs/ACCES_MANAGER_DISTANT.md](../docs/ACCES_MANAGER_DISTANT.md).
 
 Le chemin `/api/...` est normalisé automatiquement depuis l’URL complète MAMP.
 
