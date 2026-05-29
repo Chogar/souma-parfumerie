@@ -1,12 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:souma_parfumerie/core/models/cart_line.dart';
+import 'package:souma_parfumerie/core/models/product_model.dart';
 import 'package:souma_parfumerie/features/pos/data/pos_repository.dart';
+import 'package:souma_parfumerie/core/config/loyalty_config.dart';
+import 'package:souma_parfumerie/features/clients/data/clients_repository.dart';
+import 'package:souma_parfumerie/features/settings/data/store_settings_repository.dart';
 import 'package:souma_parfumerie/features/pos/models/sale_receipt.dart';
 
 class PosProvider extends ChangeNotifier {
   PosProvider(this._repository);
 
   final PosRepository _repository;
+  final _storeRepo = StoreSettingsRepository();
+  final _clientsRepo = ClientsRepository();
   final List<CartLine> _lines = [];
 
   String paymentMethod = 'cash';
@@ -19,8 +25,7 @@ class PosProvider extends ChangeNotifier {
 
   List<CartLine> get lines => List.unmodifiable(_lines);
 
-  double get subtotal =>
-      _lines.fold(0, (sum, l) => sum + l.lineTotal);
+  double get subtotal => _lines.fold(0, (sum, l) => sum + l.lineTotal);
 
   double get total {
     var t = subtotal;
@@ -51,14 +56,35 @@ class PosProvider extends ChangeNotifier {
 
   Future<void> scanBarcode(String barcode, {bool allowOverride = false}) async {
     stockError = null;
-    final product = await _repository.findByBarcode(barcode);
+    var product = await _repository.findByBarcode(barcode);
     if (product == null) {
+      final expired = await _repository.findByBarcodeAllowExpired(barcode);
+      if (expired != null && expired.isExpired) {
+        stockError = 'expired';
+        notifyListeners();
+        return;
+      }
       stockError = 'not_found';
       notifyListeners();
       return;
     }
+    _addProductToCart(product, allowOverride: allowOverride);
+  }
 
-    final existing = _lines.where((l) => l.product.id == product.id).firstOrNull;
+  void addProduct(ProductModel product, {bool allowOverride = false}) {
+    stockError = null;
+    _addProductToCart(product, allowOverride: allowOverride);
+  }
+
+  void _addProductToCart(ProductModel product, {bool allowOverride = false}) {
+    if (product.stockQuantity <= 0 && !allowOverride) {
+      stockError = 'outOfStock';
+      notifyListeners();
+      return;
+    }
+
+    final existing =
+        _lines.where((l) => l.product.id == product.id).firstOrNull;
     final newQty = (existing?.quantity ?? 0) + 1;
 
     if (newQty > product.stockQuantity && !allowOverride) {
@@ -107,33 +133,78 @@ class PosProvider extends ChangeNotifier {
   }) async {
     if (_lines.isEmpty) return null;
 
+    final linesSnapshot = _lines
+        .map((l) => CartLine(product: l.product, quantity: l.quantity))
+        .toList();
+
+    // Capturer les montants AVANT de vider le panier (sinon total = 0).
+    final savedSubtotal = subtotal;
+    final savedDiscountAmount = discountAmount;
+    final savedDiscountPercent = discountPercent;
+    final savedTotal = total;
+    final savedPayment = paymentMethod;
+    final savedPhone = clientPhone;
+    final paid = amountPaid > 0 ? amountPaid : savedTotal;
+    final savedChange = savedPayment == 'cash' && paid > savedTotal
+        ? paid - savedTotal
+        : 0.0;
+
+    final store = await _storeRepo.load();
     final snapshot = SaleReceipt.beforeComplete(
-      lines: _lines,
-      subtotal: subtotal,
-      discountAmount: discountAmount,
-      total: total,
-      paymentMethod: paymentMethod,
-      amountPaid: amountPaid > 0 ? amountPaid : total,
-      changeGiven: change,
+      lines: linesSnapshot,
+      subtotal: savedSubtotal,
+      discountAmount: savedDiscountAmount,
+      total: savedTotal,
+      paymentMethod: savedPayment,
+      amountPaid: paid,
+      changeGiven: savedChange,
       cashierName: cashierName,
-      clientPhone: clientPhone,
+      clientPhone: savedPhone,
+      store: store,
     );
 
-    lastInvoice = await _repository.completeSale(
-      userId: userId,
-      lines: _lines,
-      subtotal: subtotal,
-      discountAmount: discountAmount,
-      discountPercent: discountPercent,
-      total: total,
-      paymentMethod: paymentMethod,
-      amountPaid: amountPaid > 0 ? amountPaid : total,
-      changeGiven: change,
-      clientPhone: clientPhone,
-    );
+    late final ({String invoiceNumber, String? clientId}) saleResult;
+    try {
+      saleResult = await _repository.completeSale(
+        userId: userId,
+        lines: linesSnapshot,
+        subtotal: savedSubtotal,
+        discountAmount: savedDiscountAmount,
+        discountPercent: savedDiscountPercent,
+        total: savedTotal,
+        paymentMethod: savedPayment,
+        amountPaid: paid,
+        changeGiven: savedChange,
+        clientPhone: savedPhone,
+      );
+      lastInvoice = saleResult.invoiceNumber;
+
+      if (saleResult.clientId != null) {
+        await _clientsRepo.addLoyaltyValidation(saleResult.clientId!);
+      }
+    } catch (e) {
+      _lines.addAll(linesSnapshot);
+      discountAmount = savedDiscountAmount;
+      discountPercent = savedDiscountPercent;
+      paymentMethod = savedPayment;
+      clientPhone = savedPhone;
+      amountPaid = paid;
+      notifyListeners();
+      debugPrint('completeSale error: $e');
+      rethrow;
+    }
 
     clearCart();
     notifyListeners();
-    return snapshot.withInvoice(lastInvoice!);
+
+    var receipt = snapshot.withInvoice(lastInvoice!);
+    if (saleResult.clientId != null) {
+      final stamps = await _clientsRepo.getLoyaltyPoints(saleResult.clientId!);
+      receipt = receipt.withLoyalty(
+        stamps: stamps,
+        giftEligible: stamps >= LoyaltyConfig.giftThreshold,
+      );
+    }
+    return receipt;
   }
 }

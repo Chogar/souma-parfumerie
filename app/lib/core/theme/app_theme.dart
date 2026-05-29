@@ -19,6 +19,11 @@ class AppTheme {
       fontFamily: 'Segoe UI',
     );
     return base.copyWith(
+      textSelectionTheme: const TextSelectionThemeData(
+        selectionColor: Color(0x66C9A227),
+        selectionHandleColor: Color(0xFFC9A227),
+        cursorColor: Color(0xFF1A1A2E),
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: primary,
         foregroundColor: Colors.white,

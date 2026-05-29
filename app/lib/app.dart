@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:souma_parfumerie/core/services/app_refresh_notifier.dart';
+import 'package:souma_parfumerie/core/services/app_shell_navigation.dart';
 import 'package:souma_parfumerie/core/services/locale_provider.dart';
+import 'package:souma_parfumerie/core/services/store_settings_service.dart';
 import 'package:souma_parfumerie/core/services/sync_service.dart';
 import 'package:souma_parfumerie/core/theme/app_theme.dart';
+import 'package:souma_parfumerie/core/widgets/app_notifier.dart';
+import 'package:souma_parfumerie/core/widgets/session_guard.dart';
 import 'package:souma_parfumerie/features/auth/data/auth_repository.dart';
 import 'package:souma_parfumerie/features/auth/providers/auth_provider.dart';
 import 'package:souma_parfumerie/features/auth/screens/login_screen.dart';
@@ -20,7 +25,12 @@ class SoumaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleProvider()..load()),
+        ChangeNotifierProvider(
+          create: (_) => StoreSettingsService()..load(),
+        ),
         ChangeNotifierProvider(create: (_) => SyncService()),
+        ChangeNotifierProvider(create: (_) => AppRefreshNotifier()),
+        ChangeNotifierProvider(create: (_) => AppShellNavigation()),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(AuthRepository()),
         ),
@@ -31,7 +41,8 @@ class SoumaApp extends StatelessWidget {
       child: Consumer<LocaleProvider>(
         builder: (context, locale, _) {
           return MaterialApp(
-            title: 'SOUMAPARFUMERIE',
+            navigatorKey: AppNotifier.navigatorKey,
+            title: 'Souma Perfumery Management System',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
             locale: locale.locale,
@@ -49,7 +60,7 @@ class SoumaApp extends StatelessWidget {
               return Directionality(
                 textDirection:
                     locale.isRtl ? TextDirection.rtl : TextDirection.ltr,
-                child: child!,
+                child: child ?? const SizedBox.shrink(),
               );
             },
             home: const _RootRouter(),
@@ -69,6 +80,6 @@ class _RootRouter extends StatelessWidget {
     if (!auth.isAuthenticated) {
       return const LoginScreen();
     }
-    return const AppShell();
+    return const SessionGuard(child: AppShell());
   }
 }

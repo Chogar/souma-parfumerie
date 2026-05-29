@@ -1,19 +1,42 @@
+/// Configuration boutique — surcharge possible au build :
+/// `flutter build windows --release --dart-define=SOUMA_DB_USER=postgres ...`
 class AppConfig {
-  static const String appName = 'SOUMAPARFUMERIE';
+  static const String appName = 'Souma Parfumerie';
+  static const String windowTitle = 'Souma Perfumery Management System';
+  static const String projectFooter = 'Réalisé par Expérience Tech';
+  static const String experienceTechUrl = 'https://www.experiencetech-td.com';
   static const String appVersion = '1.0.0';
 
-  // PostgreSQL local — à adapter sur chaque poste boutique
-  static const String dbHost = '127.0.0.1';
-  static const int dbPort = 5432;
-  static const String dbName = 'souma_parfumerie';
-  /// Utilisateur PostgreSQL local (Mac Homebrew : nom de session macOS).
-  static const String dbUser = 'hassanechogar';
-  static const String dbPassword = '';
+  static const String dbHost = String.fromEnvironment(
+    'SOUMA_DB_HOST',
+    defaultValue: '127.0.0.1',
+  );
+  static const int dbPort = int.fromEnvironment(
+    'SOUMA_DB_PORT',
+    defaultValue: 5432,
+  );
+  static const String dbName = String.fromEnvironment(
+    'SOUMA_DB_NAME',
+    defaultValue: 'souma_parfumerie',
+  );
+  static const String dbUser = String.fromEnvironment(
+    'SOUMA_DB_USER',
+    defaultValue: 'hassanechogar',
+  );
+  static const String dbPassword = String.fromEnvironment(
+    'SOUMA_DB_PASSWORD',
+    defaultValue: '',
+  );
 
-  // API LWS — configurable dans Paramètres
-  static const String defaultApiBaseUrl =
-      'http://localhost:8888/Souma%20Parfumerie/api/public';
+  static const String defaultApiBaseUrl = String.fromEnvironment(
+    'SOUMA_API_URL',
+    defaultValue:
+        'http://localhost:8888/Souma%20Parfumerie/api/public',
+  );
 
   static const String currencySymbol = 'FCFA';
-  static const String deviceId = 'boutique-windows-01';
+  static const String deviceId = String.fromEnvironment(
+    'SOUMA_DEVICE_ID',
+    defaultValue: 'boutique-01',
+  );
 }

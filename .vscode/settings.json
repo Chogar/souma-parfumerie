@@ -1,0 +1,24 @@
+{
+  "dart.analysisRoots": ["app"],
+  "dart.projectSearchDepth": 3,
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/app/build": true
+  },
+  "search.exclude": {
+    "**/api/vendor": true,
+    "**/app/build": true,
+    "**/app/.dart_tool": true
+  },
+  "intelephense.files.exclude": [
+    "**/api/vendor/**",
+    "**/node_modules/**"
+  ],
+  "intelephense.environment.includePaths": ["api/vendor"],
+  "php.validate.enable": true,
+  "php.validate.run": "onSave",
+  "[php]": {
+    "editor.defaultFormatter": null
+  },
+  "markdown.validate.enabled": true
+}

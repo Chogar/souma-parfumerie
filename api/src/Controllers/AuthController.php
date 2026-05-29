@@ -26,7 +26,7 @@ final class AuthController
             'SELECT u.*, r.code AS role_code, r.label_fr, r.label_ar
              FROM users u
              JOIN roles r ON r.id = u.role_id
-             WHERE u.username = :username AND u.is_active = TRUE
+             WHERE LOWER(u.username) = LOWER(:username) AND u.is_active = TRUE
              LIMIT 1'
         );
         $stmt->execute(['username' => $username]);
@@ -49,6 +49,11 @@ final class AuthController
 
         AuditService::log($user['id'], 'login_success', 'users', $user['id']);
 
+        $permissions = $user['permissions'] ?? '{}';
+        if (is_string($permissions)) {
+            $permissions = json_decode($permissions, true) ?: [];
+        }
+
         return Response::json([
             'success' => true,
             'token' => $token,
@@ -59,6 +64,7 @@ final class AuthController
                 'role' => $user['role_code'],
                 'role_label_fr' => $user['label_fr'],
                 'role_label_ar' => $user['label_ar'],
+                'permissions' => $permissions,
             ],
         ]);
     }

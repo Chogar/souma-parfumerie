@@ -18,5 +18,7 @@ backups/*.sql
 backups/*.gz
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 *.log

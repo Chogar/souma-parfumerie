@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS products (
     purchase_price  DECIMAL(12,2) NOT NULL DEFAULT 0,
     sale_price      DECIMAL(12,2) NOT NULL,
     min_stock_level INT NOT NULL DEFAULT 5,
+    expires_at      DATE,
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_synced       BOOLEAN NOT NULL DEFAULT FALSE
@@ -106,6 +107,7 @@ CREATE TABLE IF NOT EXISTS clients (
     phone       VARCHAR(32) UNIQUE,
     name        VARCHAR(128),
     loyalty_points INT NOT NULL DEFAULT 0,
+    gifts_received INT NOT NULL DEFAULT 0,
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_synced   BOOLEAN NOT NULL DEFAULT FALSE
 );

@@ -149,10 +149,13 @@ final class SyncController
                 continue;
             }
             $pdo->prepare(
-                'INSERT INTO stock_levels (product_id, quantity)
-                 VALUES (:pid, :qty)
+                'INSERT INTO stock_levels (id, product_id, quantity, is_synced)
+                 VALUES (uuid_generate_v4(), :pid, :qty, TRUE)
                  ON CONFLICT (product_id)
-                 DO UPDATE SET quantity = stock_levels.quantity + :qty2, updated_at = NOW()'
+                 DO UPDATE SET
+                   quantity = stock_levels.quantity + :qty2,
+                   updated_at = NOW(),
+                   is_synced = TRUE'
             )->execute([
                 'pid' => $m['product_id'],
                 'qty' => $m['quantity_delta'],

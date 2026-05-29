@@ -22,6 +22,14 @@ INSERT INTO users (id, role_id, username, password_hash, full_name, is_synced) V
         '$2y$12$HHEns3GCl9qGgsXJgIdAjOOPSKM/lIkekA4WzDE9wylko3DIt65CS',
         'Gestionnaire Caisse',
         TRUE
+    ),
+    (
+        'b0000000-0000-4000-8000-000000000003',
+        'a0000000-0000-4000-8000-000000000002',
+        'Chogar',
+        '$2y$12$oU2VtrrbhTVwUL5kmHaDCOg8by2dWA0oX5ih5gkuAqBGh8ji67ik6',
+        'Chogar',
+        TRUE
     )
 ON CONFLICT (username) DO NOTHING;
 
@@ -50,7 +58,7 @@ SELECT id, 40, TRUE FROM products WHERE barcode = '3760123456791'
 ON CONFLICT (product_id) DO NOTHING;
 
 INSERT INTO app_settings (key, value, is_synced) VALUES
-    ('store', '{"name_fr":"SOUMAPARFUMERIE","name_ar":"سوما للعطور","currency":"XAF","address":""}', TRUE),
+    ('store', '{"name_fr":"Souma Parfumerie","name_ar":"سوما للعطور","currency":"XAF","address":""}', TRUE),
     ('print', '{"language":"fr","receipt_width":80,"auto_print":true}', TRUE),
     ('sync', '{"api_base_url":"https://votre-domaine.lws.fr/api","enabled":true}', TRUE)
 ON CONFLICT (key) DO NOTHING;

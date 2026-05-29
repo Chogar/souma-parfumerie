@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
@@ -5,7 +6,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:souma_parfumerie/core/config/app_config.dart';
+import 'package:souma_parfumerie/core/utils/loyalty_document_helper.dart';
+import 'package:souma_parfumerie/core/utils/store_document_helper.dart';
 import 'package:souma_parfumerie/features/pos/models/sale_receipt.dart';
 
 /// Impression reçu thermique 80 mm (PDF → imprimante par défaut).
@@ -21,7 +23,7 @@ class ReceiptPrintService {
 
   static Future<bool> isAutoPrintEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('auto_print') ?? true;
+    return prefs.getBool('auto_print') ?? false;
   }
 
   static Future<String> printLanguage() async {
@@ -47,16 +49,58 @@ class ReceiptPrintService {
   }) async {
     if (!force && !await isAutoPrintEnabled()) return;
 
-    final lang = language ?? await printLanguage();
-    final bytes = Uint8List.fromList(await _buildPdfBytes(receipt, lang));
-    final printers = await Printing.listPrinters();
-    if (printers.isEmpty) {
-      await Printing.layoutPdf(
-        onLayout: (_) async => bytes,
-        format: _rollFormat,
+    try {
+      await _printReceiptImpl(receipt, language).timeout(
+        const Duration(seconds: 8),
       );
+    } catch (_) {
+      // Ne pas bloquer la caisse si l'impression échoue.
+    }
+  }
+
+  /// Réimpression manuelle : feuille de partage sur bureau (évite le blocage macOS).
+  static Future<bool> presentReceipt(
+    SaleReceipt receipt, {
+    String? language,
+  }) async {
+    try {
+      final lang = language ?? await printLanguage();
+      final bytes = Uint8List.fromList(await _buildPdfBytes(receipt, lang));
+      final name = 'ticket_${receipt.invoiceNumber}.pdf';
+
+      if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+        await Printing.sharePdf(bytes: bytes, filename: name).timeout(
+          const Duration(seconds: 45),
+        );
+        return true;
+      }
+
+      return await _directPrint(bytes);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _printReceiptImpl(
+    SaleReceipt receipt,
+    String? language,
+  ) async {
+    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      // Évite listPrinters / directPrintPdf qui bloquent souvent sur macOS.
       return;
     }
+
+    final lang = language ?? await printLanguage();
+    final bytes = Uint8List.fromList(await _buildPdfBytes(receipt, lang));
+    await _directPrint(bytes);
+  }
+
+  static Future<bool> _directPrint(Uint8List bytes) async {
+    final printers = await Printing.listPrinters().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => <Printer>[],
+    );
+    if (printers.isEmpty) return false;
 
     var printer = printers.first;
     for (final p in printers) {
@@ -66,11 +110,15 @@ class ReceiptPrintService {
       }
     }
 
-    await Printing.directPrintPdf(
-      printer: printer,
-      onLayout: (_) async => bytes,
-      format: _rollFormat,
-    );
+    await (() async {
+      final job = Printing.directPrintPdf(
+        printer: printer,
+        onLayout: (_) async => bytes,
+        format: _rollFormat,
+      );
+      if (job is Future) await job;
+    })().timeout(const Duration(seconds: 15));
+    return true;
   }
 
   static Future<List<int>> _buildPdfBytes(SaleReceipt r, String lang) async {
@@ -82,6 +130,14 @@ class ReceiptPrintService {
     final doc = pw.Document();
     final isAr = lang == 'ar';
     final bilingual = lang == 'bilingual';
+    final loyaltyWidgets = r.loyaltyStamps != null
+        ? await LoyaltyDocumentHelper.buildLoyaltySection(
+            stamps: r.loyaltyStamps!,
+            threshold: r.loyaltyThreshold,
+            locale: lang,
+            compact: true,
+          )
+        : <pw.Widget>[];
 
     String t(String fr, String ar) {
       if (bilingual) return '$fr\n$ar';
@@ -115,6 +171,16 @@ class ReceiptPrintService {
             ),
           ),
           pw.SizedBox(height: 4),
+          for (final line in StoreDocumentHelper.receiptLines(r.store, lang))
+            pw.Center(
+              child: pw.Text(
+                line,
+                style: const pw.TextStyle(fontSize: 8),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+          if (StoreDocumentHelper.receiptLines(r.store, lang).isNotEmpty)
+            pw.SizedBox(height: 4),
           pw.Center(
             child: pw.Text(
               t('Ticket de caisse', 'تذكرة الصندوق'),
@@ -143,7 +209,7 @@ class ReceiptPrintService {
           pw.Divider(),
           row(
             t('Sous-total', 'المجموع'),
-            '${_fmt.format(r.subtotal)} ${AppConfig.currencySymbol}',
+            '${_fmt.format(r.subtotal)} ${r.currencySymbol}',
           ),
           if (r.discountAmount > 0)
             row(
@@ -152,7 +218,7 @@ class ReceiptPrintService {
             ),
           row(
             t('TOTAL', 'الإجمالي'),
-            '${_fmt.format(r.total)} ${AppConfig.currencySymbol}',
+            '${_fmt.format(r.total)} ${r.currencySymbol}',
           ),
           row(
             t('Paiement', 'الدفع'),
@@ -161,13 +227,21 @@ class ReceiptPrintService {
           if (r.paymentMethod == 'cash') ...[
             row(
               t('Reçu', 'المستلم'),
-              '${_fmt.format(r.amountPaid)} ${AppConfig.currencySymbol}',
+              '${_fmt.format(r.amountPaid)} ${r.currencySymbol}',
             ),
             row(
               t('Monnaie', 'الباقي'),
-              '${_fmt.format(r.changeGiven)} ${AppConfig.currencySymbol}',
+              '${_fmt.format(r.changeGiven)} ${r.currencySymbol}',
             ),
           ],
+          if (r.clientPhone != null && r.clientPhone!.isNotEmpty) ...[
+            pw.Divider(),
+            pw.Text(
+              '${t('Client', 'العميل')}: ${r.clientPhone}',
+              style: const pw.TextStyle(fontSize: 8),
+            ),
+          ],
+          ...loyaltyWidgets,
           pw.SizedBox(height: 8),
           pw.Center(
             child: pw.Text(

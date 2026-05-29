@@ -1,4 +1,6 @@
+import 'package:souma_parfumerie/core/config/loyalty_config.dart';
 import 'package:souma_parfumerie/core/models/cart_line.dart';
+import 'package:souma_parfumerie/core/models/store_settings.dart';
 
 class SaleReceipt {
   SaleReceipt({
@@ -13,9 +15,10 @@ class SaleReceipt {
     required this.soldAt,
     this.cashierName,
     this.clientPhone,
-    this.storeNameFr = 'SOUMAPARFUMERIE',
-    this.storeNameAr = 'سوما للعطور',
-  });
+    StoreSettings? store,
+    this.loyaltyStamps,
+    this.loyaltyGiftEligible = false,
+  }) : store = store ?? StoreSettings.defaults;
 
   final String invoiceNumber;
   final List<CartLine> lines;
@@ -28,8 +31,15 @@ class SaleReceipt {
   final DateTime soldAt;
   final String? cashierName;
   final String? clientPhone;
-  final String storeNameFr;
-  final String storeNameAr;
+  final StoreSettings store;
+  final int? loyaltyStamps;
+  final bool loyaltyGiftEligible;
+
+  int get loyaltyThreshold => LoyaltyConfig.giftThreshold;
+
+  String get storeNameFr => store.nameFr;
+  String get storeNameAr => store.nameAr;
+  String get currencySymbol => store.currencySymbol;
 
   factory SaleReceipt.beforeComplete({
     required List<CartLine> lines,
@@ -41,6 +51,7 @@ class SaleReceipt {
     required double changeGiven,
     String? cashierName,
     String? clientPhone,
+    StoreSettings? store,
   }) {
     return SaleReceipt(
       invoiceNumber: '',
@@ -56,6 +67,7 @@ class SaleReceipt {
       soldAt: DateTime.now(),
       cashierName: cashierName,
       clientPhone: clientPhone,
+      store: store,
     );
   }
 
@@ -72,8 +84,47 @@ class SaleReceipt {
       soldAt: soldAt,
       cashierName: cashierName,
       clientPhone: clientPhone,
-      storeNameFr: storeNameFr,
-      storeNameAr: storeNameAr,
+      store: store,
+      loyaltyStamps: loyaltyStamps,
+      loyaltyGiftEligible: loyaltyGiftEligible,
+    );
+  }
+
+  SaleReceipt withStore(StoreSettings store) {
+    return SaleReceipt(
+      invoiceNumber: invoiceNumber,
+      lines: lines,
+      subtotal: subtotal,
+      discountAmount: discountAmount,
+      total: total,
+      paymentMethod: paymentMethod,
+      amountPaid: amountPaid,
+      changeGiven: changeGiven,
+      soldAt: soldAt,
+      cashierName: cashierName,
+      clientPhone: clientPhone,
+      store: store,
+      loyaltyStamps: loyaltyStamps,
+      loyaltyGiftEligible: loyaltyGiftEligible,
+    );
+  }
+
+  SaleReceipt withLoyalty({required int stamps, required bool giftEligible}) {
+    return SaleReceipt(
+      invoiceNumber: invoiceNumber,
+      lines: lines,
+      subtotal: subtotal,
+      discountAmount: discountAmount,
+      total: total,
+      paymentMethod: paymentMethod,
+      amountPaid: amountPaid,
+      changeGiven: changeGiven,
+      soldAt: soldAt,
+      cashierName: cashierName,
+      clientPhone: clientPhone,
+      store: store,
+      loyaltyStamps: stamps,
+      loyaltyGiftEligible: giftEligible,
     );
   }
 }

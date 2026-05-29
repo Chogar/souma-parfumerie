@@ -1,0 +1,7 @@
+-- Sécurité : 2FA TOTP, verrouillage login
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS failed_login_attempts INT NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;

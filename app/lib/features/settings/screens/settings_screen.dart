@@ -5,7 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:souma_parfumerie/core/config/app_config.dart';
 import 'package:souma_parfumerie/core/services/sync_service.dart';
+import 'package:souma_parfumerie/core/widgets/app_notifier.dart';
 import 'package:souma_parfumerie/features/pos/services/receipt_print_service.dart';
+import 'package:souma_parfumerie/features/settings/widgets/security_settings_section.dart';
+import 'package:souma_parfumerie/features/settings/widgets/store_settings_section.dart';
 import 'package:souma_parfumerie/l10n/app_localizations.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -17,7 +20,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _apiUrl = TextEditingController(text: AppConfig.defaultApiBaseUrl);
-  bool _autoPrint = true;
+  bool _autoPrint = false;
   String _printLang = 'fr';
 
   @override
@@ -40,35 +43,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await ReceiptPrintService.setAutoPrint(_autoPrint);
     await ReceiptPrintService.setPrintLanguage(_printLang);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Paramètres enregistrés')),
-      );
+      AppNotifier.success('Paramètres enregistrés', context: context);
     }
   }
 
+  static String get _projectRoot =>
+      '/Applications/MAMP/htdocs/Souma Parfumerie';
+
   Future<void> _runBackup() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
+      final env = Map<String, String>.from(Platform.environment);
+      env['DB_NAME'] = AppConfig.dbName;
+      env['DB_USER'] = AppConfig.dbUser;
+      env['DB_HOST'] = AppConfig.dbHost;
+      env['DB_PORT'] = '${AppConfig.dbPort}';
+      env['PATH'] =
+          '/opt/homebrew/bin:/opt/homebrew/opt/postgresql@14/bin:'
+          '/usr/local/bin:/usr/local/opt/postgresql@14/bin:'
+          '${env['PATH'] ?? ''}';
+
       final result = await Process.run(
         'bash',
         ['scripts/backup_db.sh'],
-        workingDirectory: '/Applications/MAMP/htdocs/Souma Parfumerie',
+        workingDirectory: _projectRoot,
+        environment: env,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.exitCode == 0
-                  ? 'Sauvegarde créée dans backups/'
-                  : 'Erreur: ${result.stderr}',
-            ),
-          ),
+      if (!mounted) return;
+      if (result.exitCode == 0) {
+        final out = '${result.stdout}'.trim();
+        final path = out.contains(':')
+            ? out.split(':').last.trim()
+            : 'backups/';
+        AppNotifier.success(
+          '${l10n.backupDone}\n$path',
+          context: context,
+        );
+      } else {
+        final err = '${result.stderr}'.trim().isNotEmpty
+            ? '${result.stderr}'.trim()
+            : '${result.stdout}'.trim();
+        AppNotifier.error(
+          err.contains('pg_dump introuvable')
+              ? l10n.backupPgDumpMissing
+              : '${l10n.backupFailed}: $err',
+          context: context,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sauvegarde: $e')),
-        );
+        AppNotifier.error('${l10n.backupFailed}: $e', context: context);
       }
     }
   }
@@ -89,7 +113,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: ListView(
         children: [
           Text(l10n.settings, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          const StoreSettingsSection(),
           const SizedBox(height: 24),
+          Text(
+            l10n.storeSettingsTechnical,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _apiUrl,
             decoration: const InputDecoration(
@@ -121,6 +154,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(onPressed: _save, child: Text(l10n.save)),
+          const Divider(height: 32),
+          const SecuritySettingsSection(),
           const Divider(height: 32),
           ListTile(
             leading: const Icon(Icons.sync),

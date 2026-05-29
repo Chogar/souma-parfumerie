@@ -1,17 +1,38 @@
-# souma_parfumerie
+# Application Flutter — Souma Parfumerie
 
-A new Flutter project.
+Client desktop **offline-first** (Windows / macOS / Linux) pour la gestion de la boutique.
 
-## Getting Started
+## Documentation complète
 
-This project is a starting point for a Flutter application.
+Voir le [README principal](../README.md) à la racine du projet (installation PostgreSQL, API, comptes, déploiement).
 
-A few resources to get you started if this is your first Flutter project:
+## Démarrage rapide
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+cd app
+flutter pub get
+flutter gen-l10n
+flutter run -d macos    # ou windows / linux
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Configuration locale
+
+Fichier `lib/core/config/app_config.dart` :
+
+- Utilisateur / mot de passe PostgreSQL
+- URL de l’API (`defaultApiBaseUrl`)
+
+## Tests
+
+```bash
+flutter analyze
+flutter test
+```
+
+## Build production (Windows)
+
+```bash
+flutter build windows --release
+```
+
+Sortie : `build/windows/x64/runner/Release/`
