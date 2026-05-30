@@ -25,4 +25,4 @@ echo "    Accès distant : installez Tailscale sur le PC boutique et le téléph
 echo "    Puis ouvrez http://<IP-TAILSCALE-PC>:${PORT}/manager/ depuis le téléphone."
 echo ""
 
-exec php -S "0.0.0.0:${PORT}" -t public
+exec php -S "0.0.0.0:${PORT}" -t public public/router.php

@@ -84,4 +84,4 @@ fi
 
 log "Démarrage API Manager (port $PORT) — PHP: $PHP_BIN"
 cd "$API"
-exec "$PHP_BIN" -S "0.0.0.0:${PORT}" -t public >>"$LOG" 2>&1
+exec "$PHP_BIN" -S "0.0.0.0:${PORT}" -t public public/router.php >>"$LOG" 2>&1

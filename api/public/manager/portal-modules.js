@@ -909,62 +909,166 @@
 
   function renderPeriodHtml(d, t, fmtMoney, table) {
     const s = d.summary || {};
+    const cmp = d.comparison || {};
+    const rs = d.returns;
+    let returnsBlock = '';
+    if (rs && (rs.requested > 0 || rs.pending > 0 || rs.approved > 0 || rs.rejected > 0)) {
+      returnsBlock = `<div class="report-block"><h4>${t('returnsPeriod')}</h4>${table(
+        [t('status'), t('qty'), t('amount')],
+        [
+          [t('requested'), rs.requested ?? 0, '—'],
+          [t('pending'), rs.pending ?? 0, '—'],
+          [t('approved'), rs.approved ?? 0, fmtMoney(rs.approved_amount)],
+          [t('rejected'), rs.rejected ?? 0, '—'],
+        ].map((r) => `<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td></tr>`),
+      )}</div>`;
+    }
     return `<div class="kpi-grid">${[
       [t('revenue'), fmtMoney(s.revenue)], [t('profit'), fmtMoney(d.profit)],
-      [t('transactions'), s.transactions], [t('expenses'), fmtMoney(d.expenses?.total)],
+      [t('transactions'), s.transactions], [t('avgBasket'), fmtMoney(s.avg_basket)],
+      [t('expenses'), fmtMoney(d.expenses?.total)], [t('discounts'), fmtMoney(s.total_discounts)],
     ].map(([l, v]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`).join('')}
       </div>
+      <div class="report-block"><h4>${t('comparison')}</h4>${table(
+        [t('comparison'), t('revenue'), t('transactions')],
+        [
+          [t('currentPeriod'), fmtMoney(cmp.current?.revenue), cmp.current?.transactions ?? 0],
+          [t('previousPeriod'), fmtMoney(cmp.previous?.revenue), cmp.previous?.transactions ?? 0],
+        ].map((r) => `<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td></tr>`),
+      )}</div>
+      ${returnsBlock}
       <div class="chart-grid chart-grid-2">
         <div class="report-block"><h4>${t('revenueByDay')}</h4><div class="chart-wrap"><canvas id="ch-day"></canvas></div></div>
         <div class="report-block"><h4>${t('byCategory')}</h4><div class="chart-wrap"><canvas id="ch-cat"></canvas></div></div>
+        <div class="report-block"><h4>${t('payments')}</h4><div class="chart-wrap"><canvas id="ch-payments"></canvas></div></div>
+        <div class="report-block"><h4>${t('byCashier')}</h4><div class="chart-wrap"><canvas id="ch-cashier"></canvas></div></div>
+        <div class="report-block"><h4>${t('monthlyRevenue')}</h4><div class="chart-wrap"><canvas id="ch-monthly"></canvas></div></div>
+        <div class="report-block"><h4>${t('topProducts')}</h4><div class="chart-wrap"><canvas id="ch-top"></canvas></div></div>
       </div>
       <div class="report-block"><h4>${t('topProducts')}</h4>${table([t('product'), t('qty'), t('amount')],
-        (d.top_products || []).map((p) => `<tr><td>${A().esc(A().pn(p))}</td><td class="num">${p.qty_sold}</td><td class="num">${fmtMoney(p.revenue)}</td></tr>`))}`;
+        (d.top_products || []).map((p) => `<tr><td>${A().esc(A().pn(p))}</td><td class="num">${p.qty_sold}</td><td class="num">${fmtMoney(p.revenue)}</td></tr>`))}
+      </div>`;
   }
 
   function renderYearlyHtml(d, t, fmtMoney, fmtMonth, tableFn) {
     const s = d.summary || {};
+    const cmp = d.comparison || {};
+    const prevRev = cmp.previous?.revenue;
+    const curRev = cmp.current?.revenue ?? s.revenue;
+    let yoy = '';
+    if (prevRev > 0) {
+      const pct = ((Number(curRev) - Number(prevRev)) / Number(prevRev)) * 100;
+      yoy = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)} % vs ${d.year - 1}`;
+    }
     return `<div class="kpi-grid">${[
       [t('revenue'), fmtMoney(s.revenue)], [t('transactions'), s.transactions],
+      [t('avgBasket'), fmtMoney(s.avg_basket)], [t('profit'), fmtMoney(d.profit)],
+      [t('expenses'), fmtMoney(d.expenses?.total)], ...(yoy ? [[t('annualComparison'), yoy]] : []),
     ].map(([l, v]) => `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div></div>`).join('')}
       </div>
-      <div class="report-block"><div class="chart-wrap"><canvas id="ch-month"></canvas></div></div>`;
+      <div class="chart-grid chart-grid-2">
+        <div class="report-block"><h4>${t('monthlyDetail')}</h4><div class="chart-wrap"><canvas id="ch-month"></canvas></div></div>
+        <div class="report-block"><h4>${t('payments')}</h4><div class="chart-wrap"><canvas id="ch-payments"></canvas></div></div>
+        <div class="report-block"><h4>${t('topProducts')}</h4><div class="chart-wrap"><canvas id="ch-top"></canvas></div></div>
+      </div>
+      <div class="report-block"><h4>${t('monthlyDetail')}</h4>${tableFn(
+        [t('date'), t('transactions'), t('revenue'), t('avgBasket')],
+        (d.monthly_breakdown || []).map((m) => `<tr><td>${fmtMonth(m.month)}</td><td class="num">${m.transactions ?? 0}</td><td class="num">${fmtMoney(m.revenue)}</td><td class="num">${fmtMoney(m.avg_basket)}</td></tr>`),
+      )}</div>
+      <div class="report-block"><h4>${t('topProducts')}</h4>${tableFn([t('product'), t('qty'), t('amount')],
+        (d.top_products || []).slice(0, 15).map((p) => `<tr><td>${A().esc(A().pn(p))}</td><td class="num">${p.qty_sold}</td><td class="num">${fmtMoney(p.revenue)}</td></tr>`))}
+      </div>`;
   }
 
   function drawCharts(d, yearly, t, fmtDay, fmtMonth, paymentLabel, pn, cn) {
     charts.forEach((c) => c.destroy());
     charts = [];
-    const colors = ['#C9A227', '#1A1A2E', '#6B7280', '#0D7A4E'];
+    const colors = ['#C9A227', '#1A1A2E', '#4A6FA5', '#6B8E6B', '#6B7280', '#0D7A4E', '#8B4513', '#9370DB'];
+    const baseOpt = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      layout: { padding: { top: 4, bottom: 4, left: 4, right: 4 } },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11 } },
+        },
+      },
+    };
+    const doughnutDs = (data) => [{
+      data,
+      backgroundColor: colors,
+      borderColor: '#FFFFFF',
+      borderWidth: 2,
+      hoverOffset: 0,
+    }];
+    const doughnutOpt = {
+      cutout: '58%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 14 } } },
+    };
     const mk = (id, type, labels, ds, opt = {}) => {
       const el = document.getElementById(id);
       if (!el || typeof Chart === 'undefined') return;
-      charts.push(new Chart(el, { type, data: { labels, datasets: ds }, options: { responsive: true, maintainAspectRatio: false, ...opt } }));
+      charts.push(new Chart(el, { type, data: { labels, datasets: ds }, options: { ...baseOpt, ...opt } }));
     };
+    const pay = d.payment_breakdown || [];
+    if (pay.length) {
+      mk('ch-payments', 'doughnut', pay.map((p) => paymentLabel(p.payment_method)),
+        doughnutDs(pay.map((p) => +p.total)), doughnutOpt);
+    }
+    const top = (d.top_products || []).slice(0, 10);
+    if (top.length) {
+      mk('ch-top', 'bar', top.map((p) => pn(p).slice(0, 18)),
+        [{ data: top.map((p) => +p.revenue), backgroundColor: '#C9A227', borderRadius: 3 }],
+        { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, grid: { display: false } }, y: { grid: { display: false } } } });
+    }
     if (!yearly) {
       const rd = d.revenue_by_day || [];
-      if (rd.length) mk('ch-day', 'line', rd.map((r) => fmtDay(r.day)), [{ data: rd.map((r) => +r.revenue), borderColor: '#C9A227', fill: true, tension: 0.3 }]);
+      if (rd.length) mk('ch-day', 'line', rd.map((r) => fmtDay(r.day)),
+        [{ label: t('revenue'), data: rd.map((r) => +r.revenue), borderColor: '#C9A227', backgroundColor: 'rgba(201,162,39,0.12)', fill: true, tension: 0.35, pointRadius: 2 }],
+        { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } });
       const sc = d.sales_by_category || [];
-      if (sc.length) mk('ch-cat', 'doughnut', sc.map((c) => cn(c)), [{ data: sc.map((c) => +c.revenue), backgroundColor: colors }]);
+      if (sc.length) mk('ch-cat', 'doughnut', sc.map((c) => cn(c)),
+        doughnutDs(sc.map((c) => +c.revenue)), doughnutOpt);
+      const cash = d.sales_by_cashier || [];
+      if (cash.length) mk('ch-cashier', 'bar', cash.map((c) => (c.cashier_name || '—').slice(0, 14)),
+        [{ data: cash.map((c) => +c.revenue), backgroundColor: '#1A1A2E', borderRadius: 3 }],
+        { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { color: 'rgba(0,0,0,0.06)' } } } });
+      const mr = d.monthly_revenue || [];
+      if (mr.length) mk('ch-monthly', 'bar', mr.map((m) => fmtMonth(m.month)),
+        [{ data: mr.map((m) => +m.revenue), backgroundColor: '#4A6FA5', borderRadius: 3 }],
+        { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } });
     } else {
       const mb = d.monthly_breakdown || [];
-      if (mb.length) mk('ch-month', 'bar', mb.map((m) => fmtMonth(m.month)), [{ data: mb.map((m) => +m.revenue), backgroundColor: '#1A1A2E' }]);
+      if (mb.length) mk('ch-month', 'bar', mb.map((m) => fmtMonth(m.month)),
+        [{ data: mb.map((m) => +m.revenue), backgroundColor: '#1A1A2E', borderRadius: 3 }],
+        { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } });
     }
+    charts.forEach((c) => c.update('none'));
   }
 
-  function exportPdf() {
-    if (!reportCache?.data || typeof jspdf === 'undefined') return;
-    const { jsPDF } = jspdf;
-    const doc = new jsPDF();
-    const d = reportCache.data;
-    const s = d.summary || {};
-    doc.setFontSize(14);
-    doc.text(A().t('pdfTitle'), 14, 15);
-    doc.autoTable({
-      startY: 22,
-      head: [[A().t('summary'), '']],
-      body: [[A().t('revenue'), A().fmtMoney(s.revenue)], [A().t('transactions'), String(s.transactions ?? 0)]],
-    });
-    doc.save(`souma-rapport-${A().today()}.pdf`);
+  async function exportPdf() {
+    if (!reportCache?.data) {
+      A().toast(A().t('noData'), true);
+      return;
+    }
+    if (typeof window.ReportPdfExport === 'undefined' || typeof jspdf === 'undefined') {
+      A().toast(A().t('pdfExportFailed'), true);
+      return;
+    }
+    A().showLoader(true);
+    try {
+      charts.forEach((c) => c.update('none'));
+      await new Promise((r) => setTimeout(r, 120));
+      const build = await window.ReportPdfExport.export(reportCache);
+      A().toast(`${A().t('pdfExportReady')} (${build || 'v4'})`);
+    } catch (e) {
+      A().toast(e.message || A().t('pdfExportFailed'), true);
+    } finally {
+      A().showLoader(false);
+    }
   }
 
   function reloadReturns() {
